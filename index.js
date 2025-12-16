@@ -1,5 +1,7 @@
 import express from "express";
-import makeWASocket, { useMultiFileAuthState } from "@whiskeysockets/baileys";
+import makeWASocket, {
+  useMultiFileAuthState
+} from "@whiskeysockets/baileys";
 import Pino from "pino";
 
 import { getPairCode } from "./pair.js";
@@ -13,20 +15,29 @@ import {
 } from "./config.js";
 
 const app = express();
+
+// ===== SETTINGS =====
 const badWords = ["fuck", "sex", "mc", "bc"];
 let warns = {};
 
+// ===== EXPRESS SERVER =====
 app.get("/", (req, res) => {
-  res.send("🤖 CK-ERROR AUTO ADMIN BOT RUNNING");
+  res.send("🤖 CK-ERROR V4 ULTRA RUNNING");
 });
 
 app.get("/pair", async (req, res) => {
-  const number = req.query.number;
-  if (!number) return res.send("❌ Number missing");
-  const code = await getPairCode(number);
-  res.send(✅ Pair Code: ${code});
+  try {
+    const number = req.query.number;
+    if (!number) return res.send("❌ Number missing");
+
+    const code = await getPairCode(number);
+    res.send(✅ Pair Code: ${code});
+  } catch (err) {
+    res.send("❌ Pair code generate failed");
+  }
 });
 
+// ===== WHATSAPP BOT =====
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
 
@@ -37,6 +48,7 @@ async function startBot() {
 
   sock.ev.on("creds.update", saveCreds);
 
+  // ===== WELCOME / GOODBYE =====
   sock.ev.on("group-participants.update", async (data) => {
     const group = data.id;
 
@@ -46,7 +58,7 @@ async function startBot() {
           text: `💜 Welcome @${user.split("@")[0]}
 
 👾 ${BOT_NAME}
-📢 ${CHANNEL_NAME}
+📢 Follow our channel:
 ${CHANNEL_LINK}`,
           mentions: [user]
         });
@@ -61,19 +73,28 @@ ${CHANNEL_LINK}`,
     }
   });
 
+  // ===== MESSAGE HANDLER =====
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const m = messages[0];
     if (!m.message) return;
 
     const from = m.key.remoteJid;
     const sender = m.key.participant || m.key.remoteJid;
-    const text = m.message.conversation || "";
+    const text =
+      m.message.conversation ||
+      m.message.extendedTextMessage?.text ||
+      "";
 
+    // ===== ANTI-LINK =====
     if (text.includes("chat.whatsapp.com")) {
       await sock.sendMessage(from, { delete: m.key });
-      await sock.sendMessage(from, { text: "🚫 Group link not allowed!" });
+      await sock.sendMessage(from, {
+        text: "🚫 Group link not allowed!"
+      });
+      return;
     }
 
+    // ===== BAD WORD + WARN =====
     for (let word of badWords) {
       if (text.toLowerCase().includes(word)) {
         warns[sender] = (warns[sender] || 0) + 1;
@@ -86,48 +107,54 @@ ${CHANNEL_LINK}`,
             text: ⚠ Warning ${warns[sender]}/${WARN_LIMIT}
           });
         }
+        return;
       }
     }
 
+    // ===== COMMANDS =====
     if (!text.startsWith(PREFIX)) return;
 
-    if (text === ".menu") {
+    if (text === ${PREFIX}ping) {
+      await sock.sendMessage(from, {
+        text: "⚡ CK-ERROR ONLINE"
+      });
+    }
+
+    if (text === ${PREFIX}channel) {
+      await sock.sendMessage(from, {
+        text: 📢 ${CHANNEL_NAME}\n${CHANNEL_LINK}
+      });
+    }
+
+    if (text === ${PREFIX}menu) {
       await sock.sendMessage(from, {
         text: `
 💜 CK-ERROR AUTO ADMIN 💜
-🟣 DARK PURPLE EDITION
+🟣 DARK PURPLE • OMNI • PRO
 
 👑 Admin:
-.kick | .tagall
+.kick | .promote | .demote | .tagall
 
 🛡 Auto:
-Anti-Link | Bad Word | Warn + Kick
+Anti-Link | Bad-Word | Warn + Kick
 
 ⚡ Tools:
 .menu | .ping | .channel
 
 👑 OWNER
 ${OWNER_NAME}
+"SILENT CONTROL • FULL POWER"
 `
-      });
-    }
-
-    if (text === ".ping") {
-      await sock.sendMessage(from, { text: "⚡ Bot Online" });
-    }
-
-    if (text === ".channel") {
-      await sock.sendMessage(from, {
-        text: ${CHANNEL_NAME}\n${CHANNEL_LINK}
       });
     }
   });
 
-  console.log("🤖 BOT CONNECTED");
+  console.log("🤖 CK-ERROR V4 ULTRA CONNECTED");
 }
 
 startBot();
 
+// ===== SERVER START =====
 app.listen(3000, () => {
-  console.log("🌐 Server running");
+  console.log("🌐 Server running on port 3000");
 });
